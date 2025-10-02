@@ -31,11 +31,16 @@ export const createSupabaseServerClient = async (): Promise<
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            if (typeof cookieStore.set === "function") {
-              cookieStore.set({ name, value, ...options });
-            }
-          });
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              if (typeof cookieStore.set === "function") {
+                cookieStore.set({ name, value, ...options });
+              }
+            });
+          } catch (error) {
+            // Next.js 15에서는 Server Action/Route Handler 외부에서 쿠키 수정 불가
+            // 이 경우 무시하고 계속 진행
+          }
         },
       },
     }

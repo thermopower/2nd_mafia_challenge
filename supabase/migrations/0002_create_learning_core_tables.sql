@@ -27,7 +27,6 @@ BEGIN
         role text NOT NULL CHECK (role IN ('learner','instructor')),
         full_name text NOT NULL,
         mobile_phone text NOT NULL,
-        organization text NOT NULL,
         created_at timestamptz NOT NULL DEFAULT NOW(),
         updated_at timestamptz NOT NULL DEFAULT NOW()
       )
@@ -65,6 +64,85 @@ EXCEPTION
     RAISE NOTICE 'profiles trigger skipped: %', SQLERRM;
 END;
 $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'terms_versions'
+  ) THEN
+    EXECUTE $terms_versions$
+      CREATE TABLE public.terms_versions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        version_code text NOT NULL UNIQUE,
+        effective_at timestamptz NOT NULL,
+        description text,
+        created_at timestamptz NOT NULL DEFAULT NOW(),
+        updated_at timestamptz NOT NULL DEFAULT NOW()
+      )
+    $terms_versions$;
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_versions creation skipped: %', SQLERRM;
+END;
+$$;
+
+ALTER TABLE IF EXISTS public.terms_versions DISABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'terms_versions'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'set_updated_at_terms_versions'
+  ) THEN
+    EXECUTE $trigger$
+      CREATE TRIGGER set_updated_at_terms_versions
+      BEFORE UPDATE ON public.terms_versions
+      FOR EACH ROW
+      EXECUTE FUNCTION public.set_updated_at()
+    $trigger$;
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_versions trigger skipped: %', SQLERRM;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'terms_acceptances'
+  ) THEN
+    EXECUTE $terms_acceptances$
+      CREATE TABLE public.terms_acceptances (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES public.profiles(user_id),
+        terms_version_id uuid NOT NULL REFERENCES public.terms_versions(id),
+        accepted_at timestamptz NOT NULL DEFAULT NOW(),
+        user_agent text,
+        ip_address text
+      )
+    $terms_acceptances$;
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_acceptances creation skipped: %', SQLERRM;
+END;
+$$;
+
+ALTER TABLE IF EXISTS public.terms_acceptances DISABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
@@ -294,6 +372,57 @@ BEGIN
     SELECT 1
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'terms_versions_code_idx'
+      AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'CREATE INDEX terms_versions_code_idx ON public.terms_versions (version_code)';
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_versions_code_idx creation skipped: %', SQLERRM;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'terms_acceptances_user_idx'
+      AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'CREATE INDEX terms_acceptances_user_idx ON public.terms_acceptances (user_id)';
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_acceptances_user_idx creation skipped: %', SQLERRM;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'terms_acceptances_version_idx'
+      AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'CREATE INDEX terms_acceptances_version_idx ON public.terms_acceptances (terms_version_id)';
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'terms_acceptances_version_idx creation skipped: %', SQLERRM;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE c.relname = 'courses_instructor_idx'
       AND n.nspname = 'public'
   ) THEN
@@ -387,6 +516,28 @@ BEGIN
 EXCEPTION
   WHEN others THEN
     RAISE NOTICE 'assignment_submissions_learner_idx creation skipped: %', SQLERRM;
+END;
+$$;
+
+-- Insert default terms version if none exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.terms_versions
+    WHERE version_code = 'v1.0'
+  ) THEN
+    INSERT INTO public.terms_versions (version_code, effective_at, description)
+    VALUES (
+      'v1.0',
+      NOW(),
+      '서비스 이용 약관 및 개인정보 처리방침에 동의합니다.'
+    );
+    RAISE NOTICE 'Default terms version v1.0 inserted';
+  END IF;
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'Default terms version insert skipped: %', SQLERRM;
 END;
 $$;
 

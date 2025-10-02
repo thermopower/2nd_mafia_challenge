@@ -1,7 +1,7 @@
 ﻿# Database Blueprint
 
 ## 데이터 플로우 요약
-- **온보딩**: Supabase Auth 계정 생성 후 `profiles`에 이름, 휴대전화, 소속, 역할(`learner` · `instructor`)을 저장하고, 역할에 맞는 초기 화면(코스 카탈로그 또는 강사 대시보드)으로 이동한다.
+- **온보딩**: Supabase Auth 계정 생성 후 `profiles`에 이름, 휴대전화, 역할(`learner` · `instructor`)을 저장하고, 약관 동의 내역은 `terms_acceptances`에 기록한다. 동의 후 역할에 맞는 화면으로 이동한다.
 - **코스 탐색 및 수강신청 (학습자)**: 학습자가 검색어와 카테고리·난이도 필터, 정렬 조건을 적용해 `status='published'`인 코스를 조회하고, 수강 신청 시 `enrollments`에 (learner, course) 쌍을 기록해 중복 신청을 차단한 뒤 결과를 Learner 대시보드에 반영한다.
 - **강사 코스 관리**: 강사는 대시보드에서 자신의 코스(`courses.instructor_id`) 목록과 현재 `status` 값을 확인해 학습자에게 노출할 코스를 `published` 상태로 유지하고, 카테고리·난이도 정보를 검토해 Learner 필터 조건과 정합성을 맞춘다.
 - **과제 열람 (학습자)**: 수강 중인 코스의 과제 중 `status='published'` 항목을 조회하고, `status='closed'`인 경우 제출 UI를 비활성화하며 지각 허용·재제출 허용 정책과 마감일, 점수 비중을 함께 표기한다.
@@ -17,7 +17,28 @@ CREATE TABLE profiles (
     role text NOT NULL CHECK (role IN ('learner', 'instructor')),
     full_name text NOT NULL,
     mobile_phone text NOT NULL,
-    organization text NOT NULL
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+-- 약관 버전 관리
+CREATE TABLE terms_versions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    version_code text NOT NULL UNIQUE,
+    effective_at timestamptz NOT NULL,
+    description text,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+-- 약관 동의 이력
+CREATE TABLE terms_acceptances (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES profiles(user_id),
+    terms_version_id uuid NOT NULL REFERENCES terms_versions(id),
+    accepted_at timestamptz NOT NULL DEFAULT NOW(),
+    user_agent text,
+    ip_address text
 );
 
 -- 코스 메타데이터 (강사 소유 및 게시 상태)
@@ -26,7 +47,9 @@ CREATE TABLE courses (
     instructor_id uuid NOT NULL REFERENCES profiles(user_id),
     status text NOT NULL CHECK (status = 'published'),
     category text NOT NULL,
-    difficulty text NOT NULL
+    difficulty text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
 -- 수강신청 내역 (중복 방지)
@@ -34,6 +57,8 @@ CREATE TABLE enrollments (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     learner_id uuid NOT NULL REFERENCES profiles(user_id),
     course_id uuid NOT NULL REFERENCES courses(id),
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW(),
     UNIQUE (learner_id, course_id)
 );
 
@@ -47,7 +72,9 @@ CREATE TABLE assignments (
     weight numeric(5, 2) NOT NULL,
     allow_late boolean NOT NULL,
     allow_resubmission boolean NOT NULL,
-    status text NOT NULL CHECK (status IN ('draft', 'published', 'closed'))
+    status text NOT NULL CHECK (status IN ('draft', 'published', 'closed')),
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
 -- 과제 제출물 (버전 관리 및 채점 상태)
@@ -63,6 +90,8 @@ CREATE TABLE assignment_submissions (
     score integer CHECK (score BETWEEN 0 AND 100),
     feedback text,
     graded_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW(),
     UNIQUE (assignment_id, learner_id, version)
 );
 ```

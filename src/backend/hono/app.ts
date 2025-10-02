@@ -3,24 +3,30 @@ import { errorBoundary } from '@/backend/middleware/error';
 import { withAppContext } from '@/backend/middleware/context';
 import { withSupabase } from '@/backend/middleware/supabase';
 import { registerExampleRoutes } from '@/features/example/backend/route';
+import { registerAuthRoutes } from '@/features/auth/backend/route';
 import type { AppEnv } from '@/backend/hono/context';
 
-let singletonApp: Hono<AppEnv> | null = null;
+const app = new Hono<AppEnv>();
 
-export const createHonoApp = () => {
-  if (singletonApp) {
-    return singletonApp;
-  }
+app.use('*', errorBoundary());
+app.use('*', withAppContext());
+app.use('*', withSupabase());
 
-  const app = new Hono<AppEnv>();
+registerExampleRoutes(app);
+registerAuthRoutes(app);
 
-  app.use('*', errorBoundary());
-  app.use('*', withAppContext());
-  app.use('*', withSupabase());
+// Debug: List all routes
+app.get('/debug/routes', (c) => {
+  const routes = app.routes.map((r) => ({
+    method: r.method,
+    path: r.path,
+  }));
+  return c.json({ routes });
+});
 
-  registerExampleRoutes(app);
+console.log('Hono app initialized with routes:');
+app.routes.forEach((route) => {
+  console.log(`  ${route.method} ${route.path}`);
+});
 
-  singletonApp = app;
-
-  return app;
-};
+export const createHonoApp = () => app;
