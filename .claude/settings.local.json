@@ -15,7 +15,8 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(cat:*)",
       "Bash(if exist .next rmdir /s /q .next)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

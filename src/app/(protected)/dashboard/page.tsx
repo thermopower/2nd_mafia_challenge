@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { useUserProfile } from "@/features/auth/hooks/useUserProfile";
 import { useLearnerDashboard } from "@/features/learner-dashboard/hooks/useLearnerDashboard";
 import { EnrolledCoursesSection } from "@/features/learner-dashboard/components/enrolled-courses-section";
 import { UpcomingAssignmentsSection } from "@/features/learner-dashboard/components/upcoming-assignments-section";
@@ -15,15 +18,27 @@ type DashboardPageProps = {
 
 export default function DashboardPage({ params }: DashboardPageProps) {
   void params;
+  const router = useRouter();
   const { user } = useCurrentUser();
+  const { data: profile, isLoading: isProfileLoading } = useUserProfile();
   const { data, isLoading, error, refetch } = useLearnerDashboard();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isProfileLoading && profile && profile.role === "instructor") {
+      router.replace("/instructor/dashboard");
+    }
+  }, [profile, isProfileLoading, router]);
+
+  if (isProfileLoading || isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (profile?.role === "instructor") {
+    return null;
   }
 
   if (error) {

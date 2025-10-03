@@ -8,6 +8,11 @@ import {
   SubmitAssignmentRequest,
   SubmitAssignmentResponse,
   SubmitAssignmentResponseSchema,
+  AssignmentSubmissionDetail,
+  AssignmentSubmissionDetailSchema,
+  GradeAssignmentRequest,
+  GradeAssignmentResponse,
+  GradeAssignmentResponseSchema,
 } from "./schema";
 import {
   assignmentDetailErrorCodes,
@@ -219,6 +224,165 @@ export async function submitAssignment(
   };
 
   const parsed = SubmitAssignmentResponseSchema.safeParse(response);
+  if (!parsed.success) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function getSubmissionForInstructor(
+  client: SupabaseClient,
+  assignmentId: string,
+  submissionId: string,
+  instructorId: string
+): Promise<HandlerResult<AssignmentSubmissionDetail, string, unknown>> {
+  const { data: assignment, error: assignmentError } = await client
+    .from("assignments")
+    .select("course_id")
+    .eq("id", assignmentId)
+    .single();
+
+  if (assignmentError || !assignment) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Assignment not found");
+  }
+
+  const { data: course, error: courseError } = await client
+    .from("courses")
+    .select("instructor_id")
+    .eq("id", assignment.course_id)
+    .single();
+
+  if (courseError || !course) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Course not found");
+  }
+
+  if (course.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this course");
+  }
+
+  const { data: submission, error: submissionError } = await client
+    .from("assignment_submissions")
+    .select("*")
+    .eq("id", submissionId)
+    .eq("assignment_id", assignmentId)
+    .single();
+
+  if (submissionError || !submission) {
+    return failure(404, assignmentDetailErrorCodes.SUBMISSION_NOT_FOUND, "Submission not found");
+  }
+
+  const camelData = mapKeys(submission, (_, key) => {
+    if (typeof key === 'string') {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const parsed = AssignmentSubmissionDetailSchema.safeParse(camelData);
+  if (!parsed.success) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function gradeAssignment(
+  client: SupabaseClient,
+  assignmentId: string,
+  submissionId: string,
+  instructorId: string,
+  payload: GradeAssignmentRequest
+): Promise<HandlerResult<GradeAssignmentResponse, string, unknown>> {
+  const { data: assignment, error: assignmentError } = await client
+    .from("assignments")
+    .select("course_id")
+    .eq("id", assignmentId)
+    .single();
+
+  if (assignmentError || !assignment) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Assignment not found");
+  }
+
+  const { data: course, error: courseError } = await client
+    .from("courses")
+    .select("instructor_id")
+    .eq("id", assignment.course_id)
+    .single();
+
+  if (courseError || !course) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Course not found");
+  }
+
+  if (course.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this course");
+  }
+
+  const { data: currentSubmission, error: fetchError } = await client
+    .from("assignment_submissions")
+    .select("*")
+    .eq("id", submissionId)
+    .eq("assignment_id", assignmentId)
+    .single();
+
+  if (fetchError || !currentSubmission) {
+    return failure(404, assignmentDetailErrorCodes.SUBMISSION_NOT_FOUND, "Submission not found");
+  }
+
+  if (currentSubmission.status !== "submitted" && currentSubmission.status !== "resubmission_required") {
+    return failure(400, assignmentDetailErrorCodes.SUBMISSION_STATUS_LOCKED, "Submission status does not allow grading");
+  }
+
+  const currentUpdatedAt = new Date(currentSubmission.updated_at).toISOString();
+  if (currentUpdatedAt !== payload.expectedUpdatedAt) {
+    return failure(409, assignmentDetailErrorCodes.CONFLICT_ON_UPDATE, "Submission has been modified by another user");
+  }
+
+  const now = new Date().toISOString();
+  const updateData: {
+    status: "graded" | "resubmission_required";
+    score: number | null;
+    feedback: string;
+    graded_at: string;
+    graded_by: string;
+  } = {
+    status: payload.requestResubmission ? "resubmission_required" : "graded",
+    score: payload.requestResubmission ? null : payload.score!,
+    feedback: payload.feedback,
+    graded_at: now,
+    graded_by: instructorId,
+  };
+
+  const { data: updatedSubmission, error: updateError } = await client
+    .from("assignment_submissions")
+    .update(updateData)
+    .eq("id", submissionId)
+    .select("id, status, score, feedback, graded_at, graded_by, updated_at")
+    .single();
+
+  if (updateError || !updatedSubmission) {
+    const errorCode = mapAssignmentError(updateError);
+    return failure(500, errorCode, "Failed to update submission", updateError);
+  }
+
+  const camelData = mapKeys(updatedSubmission, (_, key) => {
+    if (typeof key === 'string') {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const response = {
+    submissionId: camelData.id,
+    status: camelData.status,
+    score: camelData.score,
+    feedback: camelData.feedback,
+    gradedAt: camelData.gradedAt,
+    gradedBy: camelData.gradedBy,
+    updatedAt: camelData.updatedAt,
+  };
+
+  const parsed = GradeAssignmentResponseSchema.safeParse(response);
   if (!parsed.success) {
     return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
   }
