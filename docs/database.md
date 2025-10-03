@@ -89,12 +89,34 @@ CREATE TABLE assignment_submissions (
     answer_text text NOT NULL,
     answer_link text,
     status text NOT NULL CHECK (status IN ('submitted', 'graded', 'resubmission_required')),
-    late boolean NOT NULL,
+    late boolean NOT NULL DEFAULT FALSE,
     score integer CHECK (score BETWEEN 0 AND 100),
     feedback text,
     graded_at timestamptz,
+    graded_by uuid REFERENCES profiles(user_id),  -- 채점자 추적
     created_at timestamptz NOT NULL DEFAULT NOW(),
     updated_at timestamptz NOT NULL DEFAULT NOW(),
     UNIQUE (assignment_id, learner_id, version)
 );
+
+-- 주요 인덱스
+CREATE INDEX courses_instructor_idx ON courses (instructor_id);
+CREATE INDEX courses_status_idx ON courses (status);
+CREATE INDEX courses_category_idx ON courses (category);
+CREATE INDEX courses_difficulty_idx ON courses (difficulty);
+CREATE INDEX courses_title_idx ON courses (title);
+CREATE INDEX courses_created_at_idx ON courses (created_at DESC);
+
+CREATE INDEX enrollments_course_idx ON enrollments (course_id);
+CREATE INDEX enrollments_learner_idx ON enrollments (learner_id);
+
+CREATE INDEX assignments_course_idx ON assignments (course_id);
+
+CREATE INDEX assignment_submissions_assignment_idx ON assignment_submissions (assignment_id);
+CREATE INDEX assignment_submissions_learner_idx ON assignment_submissions (learner_id);
+CREATE INDEX assignment_submissions_graded_by_idx ON assignment_submissions (graded_by);
+
+CREATE INDEX terms_versions_code_idx ON terms_versions (version_code);
+CREATE INDEX terms_acceptances_user_idx ON terms_acceptances (user_id);
+CREATE INDEX terms_acceptances_version_idx ON terms_acceptances (terms_version_id);
 ```
