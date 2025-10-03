@@ -53,14 +53,24 @@ export function MainNav() {
               )}
 
               {isInstructor && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/instructor/dashboard")}
-                >
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  강사 대시보드
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push("/catalog")}
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    코스 탐색
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push("/instructor/dashboard")}
+                  >
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    강사 대시보드
+                  </Button>
+                </>
               )}
             </div>
           </div>
