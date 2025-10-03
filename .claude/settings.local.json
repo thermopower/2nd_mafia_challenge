@@ -8,7 +8,14 @@
       "Bash(npm run dev:*)",
       "Bash(curl:*)",
       "Bash(taskkill:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(mkdir:*)",
+      "Bash(move \"C:\\Users\\js\\Desktop\\supernext\\src\\app\\page.tsx\" \"C:\\Users\\js\\Desktop\\supernext\\src\\app\\catalog\\page.tsx\")",
+      "Bash(rm:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(cat:*)",
+      "Bash(if exist .next rmdir /s /q .next)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []

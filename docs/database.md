@@ -45,7 +45,10 @@ CREATE TABLE terms_acceptances (
 CREATE TABLE courses (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     instructor_id uuid NOT NULL REFERENCES profiles(user_id),
-    status text NOT NULL CHECK (status = 'published'),
+    title text NOT NULL,
+    description text NOT NULL,
+    thumbnail_url text,
+    status text NOT NULL CHECK (status IN ('draft', 'published', 'archived')),
     category text NOT NULL,
     difficulty text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT NOW(),

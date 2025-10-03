@@ -4,6 +4,9 @@ import { withAppContext } from '@/backend/middleware/context';
 import { withSupabase } from '@/backend/middleware/supabase';
 import { registerExampleRoutes } from '@/features/example/backend/route';
 import { registerAuthRoutes } from '@/features/auth/backend/route';
+import { registerCourseCatalogRoutes } from '@/features/course-catalog/backend/route';
+import { registerLearnerDashboardRoutes } from '@/features/learner-dashboard/backend/route';
+import { registerAssignmentRoutes } from '@/features/assignments/backend/route';
 import type { AppEnv } from '@/backend/hono/context';
 
 const app = new Hono<AppEnv>();
@@ -14,6 +17,9 @@ app.use('*', withSupabase());
 
 registerExampleRoutes(app);
 registerAuthRoutes(app);
+registerCourseCatalogRoutes(app);
+registerLearnerDashboardRoutes(app);
+registerAssignmentRoutes(app);
 
 // Debug: List all routes
 app.get('/debug/routes', (c) => {
@@ -22,11 +28,6 @@ app.get('/debug/routes', (c) => {
     path: r.path,
   }));
   return c.json({ routes });
-});
-
-console.log('Hono app initialized with routes:');
-app.routes.forEach((route) => {
-  console.log(`  ${route.method} ${route.path}`);
 });
 
 export const createHonoApp = () => app;

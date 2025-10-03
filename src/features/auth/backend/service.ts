@@ -9,6 +9,7 @@ import {
   TermsVersionRowSchema,
   type LatestTermsVersionResponse,
   type ProfileRow,
+  type ProfileResponse,
   type SignupRequest,
   type SignupResponse,
   type TermsVersionRow,
@@ -229,4 +230,50 @@ export const getLatestTermsVersion = async (
       error instanceof Error ? error.message : String(error),
     );
   }
+};
+
+export const getUserProfile = async (
+  client: SupabaseClient,
+  userId: string,
+): Promise<HandlerResult<ProfileResponse, AuthSignupServiceError, unknown>> => {
+  const { data, error } = await client
+    .from(PROFILES_TABLE)
+    .select('user_id, role, full_name, mobile_phone, created_at, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle<ProfileRow>();
+
+  if (error) {
+    return failure(
+      500,
+      authSignupErrorCodes.supabaseAuthFailed,
+      '프로필 조회 중 오류가 발생했습니다.',
+      error,
+    );
+  }
+
+  if (!data) {
+    return failure(404, authSignupErrorCodes.profileCreationFailed, '프로필을 찾을 수 없습니다.');
+  }
+
+  const parse = ProfileRowSchema.safeParse(data);
+
+  if (!parse.success) {
+    return failure(
+      500,
+      authSignupErrorCodes.validationError,
+      '프로필 데이터 검증에 실패했습니다.',
+      parse.error.format(),
+    );
+  }
+
+  const response: ProfileResponse = {
+    userId: parse.data.user_id,
+    fullName: parse.data.full_name,
+    phoneNumber: parse.data.mobile_phone,
+    role: parse.data.role,
+    createdAt: parse.data.created_at,
+    updatedAt: parse.data.updated_at,
+  };
+
+  return success(response);
 };

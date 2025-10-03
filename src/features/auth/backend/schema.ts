@@ -49,3 +49,14 @@ export const ProfileRowSchema = z.object({
 });
 
 export type ProfileRow = z.infer<typeof ProfileRowSchema>;
+
+export const ProfileResponseSchema = z.object({
+  userId: z.string().uuid(),
+  fullName: z.string(),
+  phoneNumber: z.string(),
+  role: z.enum(['learner', 'instructor']),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type ProfileResponse = z.infer<typeof ProfileResponseSchema>;
