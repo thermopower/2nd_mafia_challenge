@@ -38,7 +38,67 @@ export const InstructorDashboardSchema = z.object({
   recentSubmissions: z.array(PendingSubmissionSchema),
 });
 
+export const InstructorCourseDetailSchema = z.object({
+  id: z.string().uuid(),
+  instructorId: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  thumbnailUrl: z.string().nullable(),
+  status: z.enum(["draft", "published", "archived"]),
+  category: z.string(),
+  difficulty: z.string(),
+  enrollmentCount: z.number().int().min(0),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const UpdateCourseRequestSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).max(5000).optional(),
+  thumbnailUrl: z.string().url().nullable().optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
+  category: z.string().min(1).max(100).optional(),
+  difficulty: z.string().min(1).max(50).optional(),
+});
+
+export const UpdateCourseResponseSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  status: z.enum(["draft", "published", "archived"]),
+  category: z.string(),
+  difficulty: z.string(),
+  updatedAt: z.string(),
+});
+
+export const CourseAssignmentSchema = z.object({
+  id: z.string().uuid(),
+  courseId: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  dueAt: z.string(),
+  weight: z.number(),
+  allowLate: z.boolean(),
+  allowResubmission: z.boolean(),
+  status: z.enum(["draft", "published", "closed"]),
+  submissionCount: z.number().int().min(0),
+  pendingCount: z.number().int().min(0),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const CourseAssignmentsResponseSchema = z.object({
+  courseId: z.string().uuid(),
+  courseTitle: z.string(),
+  assignments: z.array(CourseAssignmentSchema),
+});
+
 export type InstructorCourse = z.infer<typeof InstructorCourseSchema>;
 export type PendingSubmission = z.infer<typeof PendingSubmissionSchema>;
 export type InstructorDashboardStats = z.infer<typeof InstructorDashboardStatsSchema>;
 export type InstructorDashboard = z.infer<typeof InstructorDashboardSchema>;
+export type InstructorCourseDetail = z.infer<typeof InstructorCourseDetailSchema>;
+export type UpdateCourseRequest = z.infer<typeof UpdateCourseRequestSchema>;
+export type UpdateCourseResponse = z.infer<typeof UpdateCourseResponseSchema>;
+export type CourseAssignment = z.infer<typeof CourseAssignmentSchema>;
+export type CourseAssignmentsResponse = z.infer<typeof CourseAssignmentsResponseSchema>;

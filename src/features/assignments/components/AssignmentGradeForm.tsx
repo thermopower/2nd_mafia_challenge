@@ -18,14 +18,18 @@ type GradeFormValues = z.infer<typeof GradeAssignmentRequestSchema>;
 
 interface AssignmentGradeFormProps {
   assignmentId: string;
-  submission: AssignmentSubmissionDetail;
+  submissionId: string;
+  currentSubmission: AssignmentSubmissionDetail;
   onSuccess?: () => void;
+  onConflict?: () => void;
 }
 
 export function AssignmentGradeForm({
   assignmentId,
-  submission,
+  submissionId,
+  currentSubmission,
   onSuccess,
+  onConflict,
 }: AssignmentGradeFormProps) {
   const { toast } = useToast();
   const gradeAssignmentMutation = useGradeAssignment();
@@ -38,10 +42,10 @@ export function AssignmentGradeForm({
   } = useForm<GradeFormValues>({
     resolver: zodResolver(GradeAssignmentRequestSchema),
     defaultValues: {
-      score: submission.score ?? undefined,
-      feedback: submission.feedback ?? "",
+      score: currentSubmission.score ?? undefined,
+      feedback: currentSubmission.feedback ?? "",
       requestResubmission: false,
-      expectedUpdatedAt: submission.updatedAt,
+      expectedUpdatedAt: currentSubmission.updatedAt,
     },
   });
 
@@ -51,7 +55,7 @@ export function AssignmentGradeForm({
     try {
       await gradeAssignmentMutation.mutateAsync({
         assignmentId,
-        submissionId: submission.id,
+        submissionId,
         ...data,
       });
 
@@ -70,6 +74,7 @@ export function AssignmentGradeForm({
           description: "다른 사용자가 이 제출물을 수정했습니다. 페이지를 새로고침해주세요.",
           variant: "destructive",
         });
+        onConflict?.();
       } else {
         toast({
           title: "채점 실패",
@@ -86,32 +91,32 @@ export function AssignmentGradeForm({
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">제출 정보</h3>
           <Badge variant={
-            submission.status === "graded" ? "default" :
-            submission.status === "resubmission_required" ? "secondary" :
+            currentSubmission.status === "graded" ? "default" :
+            currentSubmission.status === "resubmission_required" ? "secondary" :
             "outline"
           }>
-            {submission.status === "graded" ? "채점 완료" :
-             submission.status === "resubmission_required" ? "재제출 요청됨" :
+            {currentSubmission.status === "graded" ? "채점 완료" :
+             currentSubmission.status === "resubmission_required" ? "재제출 요청됨" :
              "제출됨"}
           </Badge>
         </div>
 
         <div className="rounded-lg border p-4 space-y-2">
           <div className="text-sm text-muted-foreground">제출 답안</div>
-          <div className="whitespace-pre-wrap">{submission.answerText}</div>
-          {submission.answerLink && (
+          <div className="whitespace-pre-wrap">{currentSubmission.answerText}</div>
+          {currentSubmission.answerLink && (
             <div className="pt-2">
               <a
-                href={submission.answerLink}
+                href={currentSubmission.answerLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"
               >
-                {submission.answerLink}
+                {currentSubmission.answerLink}
               </a>
             </div>
           )}
-          {submission.late && (
+          {currentSubmission.late && (
             <Badge variant="destructive" className="mt-2">지각 제출</Badge>
           )}
         </div>

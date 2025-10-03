@@ -66,7 +66,7 @@ export function PendingSubmissionsList({ submissions }: PendingSubmissionsListPr
                 size="sm"
                 onClick={() =>
                   router.push(
-                    `/dashboard/courses/${submission.courseId}/assignments/${submission.assignmentId}/submissions/${submission.id}/grade`
+                    `/instructor/assignments/${submission.assignmentId}/submissions/${submission.id}/grade`
                   )
                 }
               >

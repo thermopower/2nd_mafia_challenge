@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "@/backend/hono/context";
-import { getInstructorDashboard } from "./service";
+import { getInstructorDashboard, getInstructorCourseDetail, updateCourse, getCourseAssignments } from "./service";
 import { respond } from "@/backend/http/response";
 import { instructorErrorCodes } from "./error";
+import { UpdateCourseRequestSchema } from "./schema";
 
 export function registerInstructorRoutes(app: Hono<AppEnv>) {
   app.get("/instructor/dashboard", async (c) => {
@@ -37,6 +38,143 @@ export function registerInstructorRoutes(app: Hono<AppEnv>) {
     const instructorId = userData.user.id;
 
     const result = await getInstructorDashboard(supabase, instructorId);
+
+    return respond(c, result);
+  });
+
+  app.get("/instructor/courses/:courseId", async (c) => {
+    const supabase = c.get("supabase");
+    const userToken = c.get("userToken");
+    const courseId = c.req.param("courseId");
+
+    if (!userToken) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "No authorization token provided",
+        },
+      });
+    }
+
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser(userToken);
+
+    if (userError || !userData?.user) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "Invalid or expired token",
+        },
+      });
+    }
+
+    const instructorId = userData.user.id;
+
+    const result = await getInstructorCourseDetail(supabase, courseId, instructorId);
+
+    return respond(c, result);
+  });
+
+  app.patch("/instructor/courses/:courseId", async (c) => {
+    const supabase = c.get("supabase");
+    const userToken = c.get("userToken");
+    const courseId = c.req.param("courseId");
+
+    if (!userToken) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "No authorization token provided",
+        },
+      });
+    }
+
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser(userToken);
+
+    if (userError || !userData?.user) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "Invalid or expired token",
+        },
+      });
+    }
+
+    const instructorId = userData.user.id;
+
+    let body;
+    try {
+      body = await c.req.json();
+    } catch {
+      return respond(c, {
+        ok: false,
+        status: 400,
+        error: {
+          code: instructorErrorCodes.INVALID_REQUEST,
+          message: "Invalid JSON body",
+        },
+      });
+    }
+
+    const validation = UpdateCourseRequestSchema.safeParse(body);
+    if (!validation.success) {
+      return respond(c, {
+        ok: false,
+        status: 422,
+        error: {
+          code: instructorErrorCodes.INVALID_REQUEST,
+          message: validation.error.errors[0]?.message || "Validation failed",
+        },
+      });
+    }
+
+    const result = await updateCourse(supabase, courseId, instructorId, validation.data);
+
+    return respond(c, result);
+  });
+
+  app.get("/instructor/courses/:courseId/assignments", async (c) => {
+    const supabase = c.get("supabase");
+    const userToken = c.get("userToken");
+    const courseId = c.req.param("courseId");
+
+    if (!userToken) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "No authorization token provided",
+        },
+      });
+    }
+
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser(userToken);
+
+    if (userError || !userData?.user) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "Invalid or expired token",
+        },
+      });
+    }
+
+    const instructorId = userData.user.id;
+
+    const result = await getCourseAssignments(supabase, courseId, instructorId);
 
     return respond(c, result);
   });

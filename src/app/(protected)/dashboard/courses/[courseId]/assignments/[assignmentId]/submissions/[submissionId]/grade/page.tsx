@@ -109,8 +109,10 @@ export default function AssignmentSubmissionGradePage({ params }: PageProps) {
           <CardContent>
             <AssignmentGradeForm
               assignmentId={assignmentId}
-              submission={submission}
+              submissionId={submissionId}
+              currentSubmission={submission}
               onSuccess={handleGradeSuccess}
+              onConflict={() => refetch()}
             />
           </CardContent>
         </Card>
