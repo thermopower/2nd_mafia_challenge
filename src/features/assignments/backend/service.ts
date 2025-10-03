@@ -13,12 +13,23 @@ import {
   GradeAssignmentRequest,
   GradeAssignmentResponse,
   GradeAssignmentResponseSchema,
+  CreateAssignmentRequest,
+  UpdateAssignmentRequest,
+  AssignmentStatus,
+  DeleteAssignmentResponse,
+  DeleteAssignmentResponseSchema,
 } from "./schema";
 import {
   assignmentDetailErrorCodes,
   mapAssignmentError,
 } from "./error";
 import { failure, success, type HandlerResult } from "@/backend/http/response";
+import {
+  calculateAutoCloseAt,
+  canEditField,
+  determineDeletionMode,
+  isStatusTransitionAllowed,
+} from "../lib/management-rules";
 
 export async function getAssignmentDetail(
   client: SupabaseClient,
@@ -40,6 +51,7 @@ export async function getAssignmentDetail(
     .select("*")
     .eq("id", assignmentId)
     .eq("course_id", enrollmentCheck.data.course_id)
+    .eq("is_deleted", false)
     .single();
 
   if (error) {
@@ -84,6 +96,7 @@ export async function getCourseAssignmentSummaries(
     .select("id, course_id, title, due_at, status")
     .in("course_id", courseIds)
     .eq("status", "published")
+    .eq("is_deleted", false)
     .order("due_at", { ascending: true });
 
   if (error) {
@@ -142,6 +155,7 @@ export async function submitAssignment(
     .from("assignments")
     .select("*")
     .eq("id", assignmentId)
+    .eq("is_deleted", false)
     .single();
 
   if (assignmentError || !assignment) {
@@ -413,4 +427,276 @@ export async function gradeAssignment(
   }
 
   return success(parsed.data);
+}
+
+export async function createAssignment(
+  client: SupabaseClient,
+  instructorId: string,
+  request: CreateAssignmentRequest
+): Promise<HandlerResult<AssignmentDetail, string, unknown>> {
+  const { data: course, error: courseError } = await client
+    .from("courses")
+    .select("instructor_id")
+    .eq("id", request.courseId)
+    .single();
+
+  if (courseError || !course) {
+    return failure(404, assignmentDetailErrorCodes.COURSE_NOT_FOUND, "Course not found");
+  }
+
+  if (course.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this course");
+  }
+
+  const dueAt = new Date(request.dueAt);
+  const autoCloseAt = calculateAutoCloseAt(dueAt, request.allowLate);
+
+  const { data: assignment, error: insertError } = await client
+    .from("assignments")
+    .insert({
+      course_id: request.courseId,
+      title: request.title,
+      description: request.description,
+      due_at: request.dueAt,
+      weight: request.weight,
+      allow_late: request.allowLate,
+      allow_resubmission: request.allowResubmission,
+      grading_rubric: request.gradingRubric || "",
+      auto_close_at: autoCloseAt?.toISOString() || null,
+      status: "draft",
+      is_deleted: false,
+    })
+    .select("*")
+    .single();
+
+  if (insertError || !assignment) {
+    const errorCode = mapAssignmentError(insertError);
+    return failure(500, errorCode, "Failed to create assignment", insertError);
+  }
+
+  const camelData = mapKeys(assignment, (_, key) => {
+    if (typeof key === 'string') {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const parsed = AssignmentDetailSchema.safeParse(camelData);
+  if (!parsed.success) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function updateAssignment(
+  client: SupabaseClient,
+  assignmentId: string,
+  instructorId: string,
+  request: UpdateAssignmentRequest
+): Promise<HandlerResult<AssignmentDetail, string, unknown>> {
+  const { data: assignment, error: assignmentError } = await client
+    .from("assignments")
+    .select("*, courses!inner(instructor_id)")
+    .eq("id", assignmentId)
+    .eq("is_deleted", false)
+    .single();
+
+  if (assignmentError || !assignment) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Assignment not found");
+  }
+
+  const courses = assignment.courses as unknown as { instructor_id: string };
+  if (courses.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this assignment");
+  }
+
+  if (assignment.is_deleted) {
+    return failure(400, assignmentDetailErrorCodes.ASSIGNMENT_ALREADY_DELETED, "Assignment is deleted");
+  }
+
+  const currentStatus = assignment.status as AssignmentStatus;
+  const updateFields: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(request)) {
+    if (value !== undefined && canEditField(currentStatus, key)) {
+      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      updateFields[snakeKey] = value;
+    }
+  }
+
+  if (Object.keys(updateFields).length === 0) {
+    return failure(400, assignmentDetailErrorCodes.ASSIGNMENT_STATUS_LOCKED, "No fields can be edited in current status");
+  }
+
+  if (updateFields.due_at && updateFields.allow_late !== undefined) {
+    const dueAt = new Date(updateFields.due_at as string);
+    const autoCloseAt = calculateAutoCloseAt(dueAt, updateFields.allow_late as boolean);
+    updateFields.auto_close_at = autoCloseAt?.toISOString() || null;
+  }
+
+  const { data: updated, error: updateError } = await client
+    .from("assignments")
+    .update(updateFields)
+    .eq("id", assignmentId)
+    .select("*")
+    .single();
+
+  if (updateError || !updated) {
+    const errorCode = mapAssignmentError(updateError);
+    return failure(500, errorCode, "Failed to update assignment", updateError);
+  }
+
+  const camelData = mapKeys(updated, (_, key) => {
+    if (typeof key === 'string') {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const parsed = AssignmentDetailSchema.safeParse(camelData);
+  if (!parsed.success) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function changeAssignmentStatus(
+  client: SupabaseClient,
+  assignmentId: string,
+  instructorId: string,
+  targetStatus: AssignmentStatus
+): Promise<HandlerResult<AssignmentDetail, string, unknown>> {
+  const { data: assignment, error: assignmentError } = await client
+    .from("assignments")
+    .select("*, courses!inner(instructor_id)")
+    .eq("id", assignmentId)
+    .eq("is_deleted", false)
+    .single();
+
+  if (assignmentError || !assignment) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Assignment not found");
+  }
+
+  const courses = assignment.courses as unknown as { instructor_id: string };
+  if (courses.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this assignment");
+  }
+
+  const currentStatus = assignment.status as AssignmentStatus;
+  if (!isStatusTransitionAllowed(currentStatus, targetStatus)) {
+    return failure(400, assignmentDetailErrorCodes.INVALID_STATUS_TRANSITION, "Invalid status transition");
+  }
+
+  const { data: updated, error: updateError } = await client
+    .from("assignments")
+    .update({ status: targetStatus })
+    .eq("id", assignmentId)
+    .select("*")
+    .single();
+
+  if (updateError || !updated) {
+    const errorCode = mapAssignmentError(updateError);
+    return failure(500, errorCode, "Failed to change status", updateError);
+  }
+
+  const camelData = mapKeys(updated, (_, key) => {
+    if (typeof key === 'string') {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const parsed = AssignmentDetailSchema.safeParse(camelData);
+  if (!parsed.success) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function deleteAssignment(
+  client: SupabaseClient,
+  assignmentId: string,
+  instructorId: string
+): Promise<HandlerResult<DeleteAssignmentResponse, string, unknown>> {
+  const { data: assignment, error: assignmentError } = await client
+    .from("assignments")
+    .select("*, courses!inner(instructor_id)")
+    .eq("id", assignmentId)
+    .single();
+
+  if (assignmentError || !assignment) {
+    return failure(404, assignmentDetailErrorCodes.ASSIGNMENT_NOT_FOUND, "Assignment not found");
+  }
+
+  const courses = assignment.courses as unknown as { instructor_id: string };
+  if (courses.instructor_id !== instructorId) {
+    return failure(403, assignmentDetailErrorCodes.INSTRUCTOR_NOT_OWNER, "Instructor does not own this assignment");
+  }
+
+  if (assignment.is_deleted) {
+    return failure(400, assignmentDetailErrorCodes.ASSIGNMENT_ALREADY_DELETED, "Assignment already deleted");
+  }
+
+  const { data: submissions, error: submissionError } = await client
+    .from("assignment_submissions")
+    .select("id, status")
+    .eq("assignment_id", assignmentId);
+
+  if (submissionError) {
+    return failure(500, assignmentDetailErrorCodes.DATABASE_ERROR, "Failed to check submissions");
+  }
+
+  const submissionStats = {
+    totalCount: submissions?.length || 0,
+    gradedCount: submissions?.filter((s) => s.status === "graded").length || 0,
+  };
+
+  const currentStatus = assignment.status as AssignmentStatus;
+  const deletionMode = determineDeletionMode(currentStatus, submissionStats);
+  const now = new Date().toISOString();
+
+  if (deletionMode === "hard") {
+    const { error: deleteError } = await client
+      .from("assignments")
+      .delete()
+      .eq("id", assignmentId);
+
+    if (deleteError) {
+      const errorCode = mapAssignmentError(deleteError);
+      return failure(500, errorCode, "Failed to delete assignment", deleteError);
+    }
+
+    const response: DeleteAssignmentResponse = {
+      assignmentId,
+      mode: "hard",
+      deletedAt: now,
+    };
+
+    return success(response);
+  } else {
+    const { error: softDeleteError } = await client
+      .from("assignments")
+      .update({
+        is_deleted: true,
+        deleted_at: now,
+        deleted_by: instructorId,
+      })
+      .eq("id", assignmentId);
+
+    if (softDeleteError) {
+      const errorCode = mapAssignmentError(softDeleteError);
+      return failure(500, errorCode, "Failed to soft delete assignment", softDeleteError);
+    }
+
+    const response: DeleteAssignmentResponse = {
+      assignmentId,
+      mode: "soft",
+      deletedAt: now,
+    };
+
+    return success(response);
+  }
 }

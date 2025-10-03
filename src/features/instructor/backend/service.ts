@@ -293,6 +293,7 @@ export async function getCourseAssignments(
     .from("assignments")
     .select("*")
     .eq("course_id", courseId)
+    .eq("is_deleted", false)
     .order("due_at", { ascending: true });
 
   if (assignmentsError) {

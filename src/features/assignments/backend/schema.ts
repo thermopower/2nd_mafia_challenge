@@ -10,6 +10,11 @@ export const AssignmentDetailSchema = z.object({
   allowLate: z.boolean(),
   allowResubmission: z.boolean(),
   status: z.enum(["draft", "published", "closed"]),
+  gradingRubric: z.string().default(""),
+  autoCloseAt: z.string().nullable().optional(),
+  isDeleted: z.boolean().default(false),
+  deletedAt: z.string().nullable().optional(),
+  deletedBy: z.string().uuid().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -94,3 +99,45 @@ export type SubmitAssignmentResponse = z.infer<typeof SubmitAssignmentResponseSc
 export type AssignmentSubmissionDetail = z.infer<typeof AssignmentSubmissionDetailSchema>;
 export type GradeAssignmentRequest = z.infer<typeof GradeAssignmentRequestSchema>;
 export type GradeAssignmentResponse = z.infer<typeof GradeAssignmentResponseSchema>;
+
+export const CreateAssignmentRequestSchema = z
+  .object({
+    courseId: z.string().uuid(),
+    title: z.string().min(1, "제목을 입력해주세요"),
+    description: z.string().min(1, "설명을 입력해주세요"),
+    dueAt: z.string().refine((val) => {
+      const date = new Date(val);
+      return date > new Date();
+    }, "마감일은 현재 이후여야 합니다"),
+    weight: z.number().min(0).max(100, "점수 비중은 0~100 사이여야 합니다"),
+    allowLate: z.boolean(),
+    allowResubmission: z.boolean(),
+    gradingRubric: z.string().default(""),
+  });
+
+export const UpdateAssignmentRequestSchema = z
+  .object({
+    title: z.string().min(1, "제목을 입력해주세요").optional(),
+    description: z.string().min(1, "설명을 입력해주세요").optional(),
+    dueAt: z.string().refine((val) => {
+      const date = new Date(val);
+      return date > new Date();
+    }, "마감일은 현재 이후여야 합니다").optional(),
+    weight: z.number().min(0).max(100, "점수 비중은 0~100 사이여야 합니다").optional(),
+    allowLate: z.boolean().optional(),
+    allowResubmission: z.boolean().optional(),
+    gradingRubric: z.string().optional(),
+  });
+
+export const AssignmentStatusSchema = z.enum(["draft", "published", "closed"]);
+
+export const DeleteAssignmentResponseSchema = z.object({
+  assignmentId: z.string().uuid(),
+  mode: z.enum(["hard", "soft"]),
+  deletedAt: z.string(),
+});
+
+export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentRequestSchema>;
+export type UpdateAssignmentRequest = z.infer<typeof UpdateAssignmentRequestSchema>;
+export type AssignmentStatus = z.infer<typeof AssignmentStatusSchema>;
+export type DeleteAssignmentResponse = z.infer<typeof DeleteAssignmentResponseSchema>;
