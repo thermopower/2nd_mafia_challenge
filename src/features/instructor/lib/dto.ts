@@ -8,6 +8,7 @@ export {
   UpdateCourseResponseSchema,
   CourseAssignmentSchema,
   CourseAssignmentsResponseSchema,
+  DeleteCourseResponseSchema,
   type InstructorCourse,
   type PendingSubmission,
   type InstructorDashboardStats,
@@ -17,4 +18,5 @@ export {
   type UpdateCourseResponse,
   type CourseAssignment,
   type CourseAssignmentsResponse,
+  type DeleteCourseResponse,
 } from "../backend/schema";

@@ -5,6 +5,7 @@ import { useUserProfile } from "@/features/auth/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { BookOpen, LayoutDashboard } from "lucide-react";
+import { ROUTES } from "@/constants/routes";
 
 export function MainNav() {
   const { user } = useCurrentUser();
@@ -25,7 +26,7 @@ export function MainNav() {
           <div className="flex items-center gap-6">
             <h1
               className="text-xl font-bold cursor-pointer"
-              onClick={() => router.push("/")}
+              onClick={() => router.push(ROUTES.HOME)}
             >
               LMS
             </h1>
@@ -36,7 +37,7 @@ export function MainNav() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push("/catalog")}
+                    onClick={() => router.push(ROUTES.CATALOG)}
                   >
                     <BookOpen className="h-4 w-4 mr-2" />
                     코스 탐색
@@ -44,7 +45,7 @@ export function MainNav() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push("/dashboard")}
+                    onClick={() => router.push(ROUTES.LEARNER_DASHBOARD)}
                   >
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     내 대시보드
@@ -57,7 +58,7 @@ export function MainNav() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push("/catalog")}
+                    onClick={() => router.push(ROUTES.CATALOG)}
                   >
                     <BookOpen className="h-4 w-4 mr-2" />
                     코스 탐색
@@ -65,7 +66,7 @@ export function MainNav() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push("/instructor/dashboard")}
+                    onClick={() => router.push(ROUTES.INSTRUCTOR_DASHBOARD)}
                   >
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     강사 대시보드

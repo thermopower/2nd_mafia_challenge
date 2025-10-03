@@ -111,6 +111,11 @@ export const CourseAssignmentsResponseSchema = z.object({
   assignments: z.array(CourseAssignmentSchema),
 });
 
+export const DeleteCourseResponseSchema = z.object({
+  id: z.string().uuid(),
+  deleted: z.boolean(),
+});
+
 export type InstructorCourse = z.infer<typeof InstructorCourseSchema>;
 export type PendingSubmission = z.infer<typeof PendingSubmissionSchema>;
 export type InstructorDashboardStats = z.infer<typeof InstructorDashboardStatsSchema>;
@@ -122,3 +127,4 @@ export type CreateCourseRequest = z.infer<typeof CreateCourseRequestSchema>;
 export type CreateCourseResponse = z.infer<typeof CreateCourseResponseSchema>;
 export type CourseAssignment = z.infer<typeof CourseAssignmentSchema>;
 export type CourseAssignmentsResponse = z.infer<typeof CourseAssignmentsResponseSchema>;
+export type DeleteCourseResponse = z.infer<typeof DeleteCourseResponseSchema>;

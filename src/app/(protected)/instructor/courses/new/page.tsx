@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CourseCreateForm } from "@/features/instructor/components/course-create-form";
 import { useUserProfile } from "@/features/auth/hooks/useUserProfile";
+import { ROUTES } from "@/constants/routes";
 
 export default function CourseCreatePage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function CourseCreatePage() {
         <p className="text-sm text-destructive">
           강사만 코스를 생성할 수 있습니다.
         </p>
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
+        <Button variant="outline" onClick={() => router.push(ROUTES.LEARNER_DASHBOARD)}>
           대시보드로 돌아가기
         </Button>
       </div>
@@ -35,7 +36,7 @@ export default function CourseCreatePage() {
   return (
     <div className="container py-8">
       <div className="mb-6">
-        <Link href="/instructor/dashboard">
+        <Link href={ROUTES.INSTRUCTOR_DASHBOARD}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" />
             대시보드로 돌아가기

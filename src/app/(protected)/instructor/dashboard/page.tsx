@@ -11,6 +11,7 @@ import { PendingSubmissionsList } from "@/features/instructor/components/Pending
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/constants/routes";
 
 export default function InstructorDashboardPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function InstructorDashboardPage() {
 
   useEffect(() => {
     if (!isProfileLoading && profile && profile.role === "learner") {
-      router.replace("/dashboard");
+      router.replace(ROUTES.LEARNER_DASHBOARD);
     }
   }, [profile, isProfileLoading, router]);
 
@@ -76,7 +77,7 @@ export default function InstructorDashboardPage() {
             코스와 과제를 관리하고 학습자의 제출물을 채점하세요
           </p>
         </div>
-        <Link href="/instructor/courses/new">
+        <Link href={ROUTES.INSTRUCTOR_COURSE_NEW}>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             새 코스 만들기

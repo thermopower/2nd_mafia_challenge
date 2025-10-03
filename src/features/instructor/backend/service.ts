@@ -20,6 +20,8 @@ import {
   CourseAssignmentSchema,
   CourseAssignmentsResponse,
   CourseAssignmentsResponseSchema,
+  DeleteCourseResponse,
+  DeleteCourseResponseSchema,
 } from "./schema";
 import { instructorErrorCodes, mapInstructorError } from "./error";
 import { failure, success, type HandlerResult } from "@/backend/http/response";
@@ -407,6 +409,43 @@ export async function createCourse(
   });
 
   const parsed = CreateCourseResponseSchema.safeParse(camelCourse);
+  if (!parsed.success) {
+    return failure(500, instructorErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
+}
+
+export async function deleteCourse(
+  client: SupabaseClient,
+  courseId: string,
+  instructorId: string
+): Promise<HandlerResult<DeleteCourseResponse, string, unknown>> {
+  const { data: course, error: fetchError } = await client
+    .from("courses")
+    .select("instructor_id")
+    .eq("id", courseId)
+    .single();
+
+  if (fetchError || !course) {
+    return failure(404, instructorErrorCodes.COURSE_NOT_FOUND, "Course not found");
+  }
+
+  if (course.instructor_id !== instructorId) {
+    return failure(403, instructorErrorCodes.NOT_COURSE_OWNER, "You do not own this course");
+  }
+
+  const { error: deleteError } = await client
+    .from("courses")
+    .delete()
+    .eq("id", courseId);
+
+  if (deleteError) {
+    const errorCode = mapInstructorError(deleteError);
+    return failure(500, errorCode, "Failed to delete course", deleteError);
+  }
+
+  const parsed = DeleteCourseResponseSchema.safeParse({ id: courseId, deleted: true });
   if (!parsed.success) {
     return failure(500, instructorErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
   }
