@@ -2,13 +2,15 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, BookOpen, Users, FileText, ClipboardList } from "lucide-react";
+import Link from "next/link";
+import { Loader2, BookOpen, Users, FileText, ClipboardList, Plus } from "lucide-react";
 import { useUserProfile } from "@/features/auth/hooks/useUserProfile";
 import { useInstructorDashboard } from "@/features/instructor/hooks/useInstructorDashboard";
 import { InstructorCourseList } from "@/features/instructor/components/InstructorCourseList";
 import { PendingSubmissionsList } from "@/features/instructor/components/PendingSubmissionsList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 export default function InstructorDashboardPage() {
   const router = useRouter();
@@ -67,11 +69,19 @@ export default function InstructorDashboardPage() {
 
   return (
     <div className="container mx-auto py-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">강사 대시보드</h1>
-        <p className="text-muted-foreground mt-2">
-          코스와 과제를 관리하고 학습자의 제출물을 채점하세요
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">강사 대시보드</h1>
+          <p className="text-muted-foreground mt-2">
+            코스와 과제를 관리하고 학습자의 제출물을 채점하세요
+          </p>
+        </div>
+        <Link href="/instructor/courses/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            새 코스 만들기
+          </Button>
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

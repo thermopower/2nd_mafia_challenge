@@ -13,6 +13,9 @@ import {
   UpdateCourseRequest,
   UpdateCourseResponse,
   UpdateCourseResponseSchema,
+  CreateCourseRequest,
+  CreateCourseResponse,
+  CreateCourseResponseSchema,
   CourseAssignment,
   CourseAssignmentSchema,
   CourseAssignmentsResponse,
@@ -354,4 +357,59 @@ export async function getCourseAssignments(
   }
 
   return success(parsedResponse.data);
+}
+
+export async function createCourse(
+  client: SupabaseClient,
+  instructorId: string,
+  data: CreateCourseRequest
+): Promise<HandlerResult<CreateCourseResponse, string, unknown>> {
+  // 강사 권한 검증
+  const { data: profile, error: profileError } = await client
+    .from("profiles")
+    .select("role")
+    .eq("user_id", instructorId)
+    .single();
+
+  if (profileError || !profile) {
+    return failure(404, instructorErrorCodes.DATABASE_ERROR, "Profile not found");
+  }
+
+  if (profile.role !== "instructor") {
+    return failure(403, instructorErrorCodes.NOT_INSTRUCTOR, "User is not an instructor");
+  }
+
+  // 코스 생성
+  const { data: newCourse, error: createError } = await client
+    .from("courses")
+    .insert({
+      instructor_id: instructorId,
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      difficulty: data.difficulty,
+      thumbnail_url: data.thumbnailUrl ?? null,
+      status: "draft",
+    })
+    .select("id, title, description, status, category, difficulty, created_at")
+    .single();
+
+  if (createError || !newCourse) {
+    const errorCode = mapInstructorError(createError);
+    return failure(500, errorCode, "Failed to create course", createError);
+  }
+
+  const camelCourse = mapKeys(newCourse, (_, key) => {
+    if (typeof key === "string") {
+      return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    return key;
+  });
+
+  const parsed = CreateCourseResponseSchema.safeParse(camelCourse);
+  if (!parsed.success) {
+    return failure(500, instructorErrorCodes.DATABASE_ERROR, "Schema validation failed", parsed.error);
+  }
+
+  return success(parsed.data);
 }

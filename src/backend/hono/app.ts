@@ -8,6 +8,7 @@ import { registerCourseCatalogRoutes } from '@/features/course-catalog/backend/r
 import { registerLearnerDashboardRoutes } from '@/features/learner-dashboard/backend/route';
 import { registerAssignmentRoutes } from '@/features/assignments/backend/route';
 import { registerInstructorRoutes } from '@/features/instructor/backend/route';
+import { registerCourseGradesRoutes } from '@/features/course-grades/backend/route';
 import type { AppEnv } from '@/backend/hono/context';
 
 const app = new Hono<AppEnv>();
@@ -22,6 +23,7 @@ registerCourseCatalogRoutes(app);
 registerLearnerDashboardRoutes(app);
 registerAssignmentRoutes(app);
 registerInstructorRoutes(app);
+registerCourseGradesRoutes(app);
 
 // Debug: List all routes
 app.get('/debug/routes', (c) => {

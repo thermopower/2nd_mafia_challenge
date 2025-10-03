@@ -16,7 +16,12 @@
       "Bash(cat:*)",
       "Bash(if exist .next rmdir /s /q .next)",
       "Bash(touch:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(for i in {001..007})",
+      "Bash(do echo \"=== docs/$i/spec.md ===\")",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

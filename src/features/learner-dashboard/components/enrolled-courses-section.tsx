@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { BookOpen } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, BarChart3 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import type { EnrolledCourse } from "@/features/learner-dashboard/lib/dto";
 import { CourseAssignmentsQuickActions } from "./course-assignments-quick-actions";
 
@@ -78,6 +80,12 @@ export const EnrolledCoursesSection = ({
                   assignments={course.quickAssignments}
                 />
               )}
+              <Link href={`/dashboard/courses/${course.id}/grades`} className="w-full">
+                <Button variant="outline" size="sm" className="w-full">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  성적 보기
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         ))}

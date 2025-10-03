@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "@/backend/hono/context";
-import { getInstructorDashboard, getInstructorCourseDetail, updateCourse, getCourseAssignments } from "./service";
+import { getInstructorDashboard, getInstructorCourseDetail, updateCourse, getCourseAssignments, createCourse } from "./service";
 import { respond } from "@/backend/http/response";
 import { instructorErrorCodes } from "./error";
-import { UpdateCourseRequestSchema } from "./schema";
+import { UpdateCourseRequestSchema, CreateCourseRequestSchema } from "./schema";
 import {
   createAssignment,
   updateAssignment,
@@ -18,6 +18,68 @@ import {
 import { assignmentDetailErrorCodes } from "@/features/assignments/backend/error";
 
 export function registerInstructorRoutes(app: Hono<AppEnv>) {
+  app.post("/instructor/courses", async (c) => {
+    const supabase = c.get("supabase");
+    const userToken = c.get("userToken");
+
+    if (!userToken) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "No authorization token provided",
+        },
+      });
+    }
+
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser(userToken);
+
+    if (userError || !userData?.user) {
+      return respond(c, {
+        ok: false,
+        status: 401,
+        error: {
+          code: instructorErrorCodes.UNAUTHORIZED_ACCESS,
+          message: "Invalid or expired token",
+        },
+      });
+    }
+
+    const instructorId = userData.user.id;
+
+    let body;
+    try {
+      body = await c.req.json();
+    } catch {
+      return respond(c, {
+        ok: false,
+        status: 400,
+        error: {
+          code: instructorErrorCodes.INVALID_REQUEST,
+          message: "Invalid JSON body",
+        },
+      });
+    }
+
+    const validation = CreateCourseRequestSchema.safeParse(body);
+    if (!validation.success) {
+      return respond(c, {
+        ok: false,
+        status: 422,
+        error: {
+          code: instructorErrorCodes.INVALID_REQUEST,
+          message: validation.error.errors[0]?.message || "Validation failed",
+        },
+      });
+    }
+
+    const result = await createCourse(supabase, instructorId, validation.data);
+
+    return respond(c, result);
+  });
+
   app.get("/instructor/dashboard", async (c) => {
     const supabase = c.get("supabase");
     const userToken = c.get("userToken");

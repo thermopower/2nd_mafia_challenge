@@ -12,18 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 import { useCourseDetailQuery } from "@/features/course-catalog/hooks/useCourseDetailQuery";
-import { useCourseEnrollmentMutation } from "@/features/course-catalog/hooks/useCourseEnrollmentMutation";
-import { useCourseUnenrollmentMutation } from "@/features/course-catalog/hooks/useCourseUnenrollmentMutation";
 import {
   COURSE_CATEGORIES,
   COURSE_DIFFICULTIES,
 } from "@/features/course-catalog/constants/filters";
 import { extractApiErrorMessage } from "@/lib/remote/api-client";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import { useUserProfile } from "@/features/auth/hooks/useUserProfile";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { CourseEnrollButtons } from "./course-enroll-buttons";
 
 type CourseDetailDialogProps = {
   courseId: string | null;
@@ -36,10 +32,6 @@ export const CourseDetailDialog = ({
   open,
   onOpenChange,
 }: CourseDetailDialogProps) => {
-  const { toast } = useToast();
-  const { isAuthenticated } = useCurrentUser();
-  const { data: profile } = useUserProfile();
-
   const {
     data: detailData,
     isLoading,
@@ -48,47 +40,6 @@ export const CourseDetailDialog = ({
     courseId,
     enabled: open && !!courseId,
   });
-
-  const enrollMutation = useCourseEnrollmentMutation();
-  const unenrollMutation = useCourseUnenrollmentMutation();
-
-  const handleEnroll = async () => {
-    if (!courseId) return;
-
-    try {
-      await enrollMutation.mutateAsync({ courseId });
-      toast({
-        title: "수강신청 성공",
-        description: "코스에 성공적으로 등록되었습니다.",
-      });
-    } catch (err) {
-      const message = extractApiErrorMessage(err, "수강신청에 실패했습니다.");
-      toast({
-        title: "수강신청 실패",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUnenroll = async () => {
-    if (!courseId) return;
-
-    try {
-      await unenrollMutation.mutateAsync({ courseId });
-      toast({
-        title: "수강 취소 성공",
-        description: "코스 수강이 취소되었습니다.",
-      });
-    } catch (err) {
-      const message = extractApiErrorMessage(err, "수강 취소에 실패했습니다.");
-      toast({
-        title: "수강 취소 실패",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
 
   const course = detailData?.course;
   const enrollment = detailData?.enrollment;
@@ -172,59 +123,12 @@ export const CourseDetailDialog = ({
                 </div>
               </div>
 
-              {!isAuthenticated ? (
-                <div className="rounded-lg border border-blue-500 bg-blue-50 p-4 dark:bg-blue-950">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    학습자만 수강신청이 가능합니다
-                  </p>
-                  <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
-                    로그인 후 이용해주세요
-                  </p>
-                </div>
-              ) : profile?.role !== "learner" ? (
-                <div className="rounded-lg border border-blue-500 bg-blue-50 p-4 dark:bg-blue-950">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    학습자만 수강신청이 가능합니다
-                  </p>
-                </div>
-              ) : enrollment?.isEnrolled ? (
-                <div className="space-y-3">
-                  <div className="rounded-lg border border-green-500 bg-green-50 p-4 dark:bg-green-950">
-                    <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                      이미 수강 중인 코스입니다
-                    </p>
-                    {enrollment.enrolledAt && (
-                      <p className="mt-1 text-xs text-green-700 dark:text-green-300">
-                        등록일: {new Date(enrollment.enrolledAt).toLocaleDateString("ko-KR")}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleUnenroll}
-                    disabled={unenrollMutation.isPending}
-                  >
-                    {unenrollMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    수강 취소
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={handleEnroll}
-                  disabled={
-                    enrollMutation.isPending || course.status !== "published"
-                  }
-                >
-                  {enrollMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {course.status !== "published" ? "수강신청 불가" : "수강신청"}
-                </Button>
-              )}
+              <CourseEnrollButtons
+                courseId={course.id}
+                courseStatus={course.status}
+                isEnrolled={enrollment?.isEnrolled ?? false}
+                enrolledAt={enrollment?.enrolledAt}
+              />
             </div>
           </div>
         )}

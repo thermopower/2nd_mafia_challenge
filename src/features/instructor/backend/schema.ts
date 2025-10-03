@@ -71,6 +71,24 @@ export const UpdateCourseResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const CreateCourseRequestSchema = z.object({
+  title: z.string().min(1, "제목은 필수입니다").max(200, "제목은 200자 이하여야 합니다"),
+  description: z.string().min(1, "설명은 필수입니다").max(5000, "설명은 5000자 이하여야 합니다"),
+  category: z.string().min(1, "카테고리는 필수입니다").max(100),
+  difficulty: z.string().min(1, "난이도는 필수입니다").max(50),
+  thumbnailUrl: z.string().url("유효한 URL을 입력해주세요").nullable().optional(),
+});
+
+export const CreateCourseResponseSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  status: z.enum(["draft", "published", "archived"]),
+  category: z.string(),
+  difficulty: z.string(),
+  createdAt: z.string(),
+});
+
 export const CourseAssignmentSchema = z.object({
   id: z.string().uuid(),
   courseId: z.string().uuid(),
@@ -100,5 +118,7 @@ export type InstructorDashboard = z.infer<typeof InstructorDashboardSchema>;
 export type InstructorCourseDetail = z.infer<typeof InstructorCourseDetailSchema>;
 export type UpdateCourseRequest = z.infer<typeof UpdateCourseRequestSchema>;
 export type UpdateCourseResponse = z.infer<typeof UpdateCourseResponseSchema>;
+export type CreateCourseRequest = z.infer<typeof CreateCourseRequestSchema>;
+export type CreateCourseResponse = z.infer<typeof CreateCourseResponseSchema>;
 export type CourseAssignment = z.infer<typeof CourseAssignmentSchema>;
 export type CourseAssignmentsResponse = z.infer<typeof CourseAssignmentsResponseSchema>;
