@@ -113,11 +113,7 @@ export const SignupForm = () => {
 
         form.reset();
 
-        if (data.role === "learner") {
-          router.push("/");
-        } else if (data.role === "instructor") {
-          router.push("/instructor/dashboard");
-        }
+        router.push("/");
       },
       onError: (error) => {
         console.error("Signup error:", error);
