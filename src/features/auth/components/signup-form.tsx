@@ -114,7 +114,7 @@ export const SignupForm = () => {
         form.reset();
 
         if (data.role === "learner") {
-          router.push("/courses");
+          router.push("/");
         } else if (data.role === "instructor") {
           router.push("/instructor/dashboard");
         }
